@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: ingestion-agent
+  labels:
+    app: ingestion-agent
+spec:
+  replicas: 2
+  selector:
+      matchLabels:
+        app: ingestion-agent
+  template:
+    metadata:
+      labels:
+        app: ingestion-agent
+    spec:
+      containers:
+        - name: tcp-sock-test
+          image: tcp-sock-test:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 58080
+          livenessProbe:
+            tcpSocket:
+              port: 58080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          volumeMounts:
+            - name: filebeat-config
+              mountPath: /etc/filebeat
+            - name: log
+              mountPath: /var/log
+          terminationMessagePath: "/var/log/termination.log"
+        - name: filebeat
+          image: elastic/filebeat:7.17.0
+          args:
+            - -c
+            - /etc/filebeat/filebeat.yaml
+            - -e
+          volumeMounts:
+            - name: filebeat-config
+              mountPath: /etc/filebeat
+            - name: log
+              mountPath: /var/log
+      volumes:
+        - name: log
+          emptyDir: {}
+        - name: filebeat-config
+          configMap:
+            name: filebeat-config
+            defaultMode: 0744
